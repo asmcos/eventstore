@@ -28,7 +28,9 @@ class UserService {
     try {
       const db = await this.getDb();
       const usersCollection = db.collection(this.collections.users);
-  
+      const permissionsCollection = db.collection(this.collections.permissions);
+
+ 
       // 验证必要字段
       if (!userData.user) {
         return { code: 500, message: '缺少公钥字段' };
@@ -73,6 +75,16 @@ class UserService {
   
       // 保存用户
       await usersCollection.insertOne(userDoc);
+
+        //add default permissions
+      await permissionsCollection.insertOne({
+          pubkey: userData.user,
+          permissions: config.defaultPermission,
+          createdAt: new Date(),
+          updatedAt: new Date()
+          });
+    
+
       return { code: 200, message: '用户创建成功' };
   
     } catch (error) {
@@ -95,6 +107,7 @@ class UserService {
 
     if (event.offset) offset = event.offset;
     if (event.limit ) limit = event.offset;
+    if (event.data && event.data.pubkeys) query['pubkey']  = {$in:event.data.pubkeys}
 
     return await db.collection(this.collections.users)
       .find(query)

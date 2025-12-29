@@ -59,14 +59,26 @@ class EventService {
       if (dTag && dTag[1]) { // 确保'd'标签有值
         const dValue = dTag[1];
         // 删除相同user和d值的事件
-        const deleteResult = await eventsCollection.deleteMany({
+        const existingCount = await eventsCollection.countDocuments({
           user: event.user,
           tags: { $elemMatch: { $eq: ['d', dValue] } }
         });
         
+        if (existingCount > 0) {
+          // 标记旧事件为非最新
+          const updateResult = await eventsCollection.updateMany(
+            {
+              user: event.user,
+              tags: { $elemMatch: { $eq: ['d', dValue] } },
+               
+            },
+            { $set: { is_latest: false } }
+          );
+        
         // 可以在这里添加日志，记录覆盖情况
-        if (deleteResult.deletedCount > 0) {
-          console.log(`已覆盖 ${deleteResult.deletedCount} 个相同user和d值的事件`);
+          if (updateResult.modifiedCount > 0) {
+            console.log(`标记了 ${updateResult.modifiedCount} 条旧事件为非最新`);
+          }
         }
       }
     }
@@ -82,7 +94,7 @@ class EventService {
   async readEvents(event, limit = 1000, code = 200, status = 1, offset = 0) {
       const db = await this.getDb();
       const query = {};
-      
+    
       // 处理查询条件
       if (event.tags) query["tags"] = { $all: event.tags };
       if (event.eventuser) query['user'] = event.eventuser;
@@ -120,6 +132,13 @@ class EventService {
           query.status = { $ne: status };
       }
  
+      if (!event.showLogs) {
+        query.$or = [
+          { is_latest: { $exists: false } }, // 没有该字段的老事件或普通事件
+          { is_latest: true }                // 仅显示最新的
+        ];
+      }
+
       // 执行带偏移量和限制的查询
       return await db.collection(this.collections.events)
           .find(query)
@@ -175,6 +194,13 @@ class EventService {
     if (event.eventuser) filter.user = event.eventuser;
     if (event.tags) filter.tags = { $all: event.tags };
   
+    if (!event.showLogs) {
+      filter.$or = [
+        { is_latest: { $exists: false } }, // 没有该字段的老事件或普通事件
+        { is_latest: true }                // 仅显示最新的
+      ];
+    }
+
     const total = await db.collection(this.collections.events).countDocuments(filter);
     return { code: 200, message: '成功', counts:total };
   }

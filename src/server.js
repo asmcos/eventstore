@@ -8,6 +8,7 @@ const LikeService       = require('./db/likes');
 const config = require('../config/config');
 const path = require('path');
 const fs = require('fs').promises;
+const fsStream = require('fs');
 const {
   PERMISSIONS,
   defaultPermissionConfigs
@@ -50,6 +51,7 @@ class WebSocketServer {
     this.port = port;
     this.wss = null;
     this.subscriptions = {};
+    this.fileStream = {};
     this.nextSubscriptionId = 1;
     this.eventService      = new EventService();
     this.userService       = new UserService();
@@ -391,37 +393,73 @@ class WebSocketServer {
         throw new Error('签名验证失败');
       }
 
+
       // 生成唯一文件名
       const fileName = `${event.id}-${event.data.fileName}`;
       const filePath = path.join(this.uploadDir, fileName);
 
+      const DATATYPE =  {
+          START: 1,      // 开始（元数据）
+          CHUNK: 2,      // 中间数据块
+          END: 4,        // 结束
+           
+      };
 
-      // 写入文件
-      if (Buffer.isBuffer(fileData)){
-        await fs.writeFile(filePath, Buffer.from(fileData.data));
-      } else {
-        await fs.writeFile(filePath, objectToBuffer(fileData));
+      if (fileData.type == DATATYPE.START) {
+        
+        this.fileStream[fileName] = fsStream.createWriteStream(filePath,{flags:'a'})
+        ws.send(JSON.stringify(["RESP", message[1], {
+          type: 'SUCCESS',
+          code: 200,
+          message: 'START',
+          fileUrl: `${fileName}`
+        }]));
+         
       }
-      
 
-      let response = await this.eventService.createEvent(event);
+      if (fileData.type == DATATYPE.CHUNK) {
+        // 写入文件
+ 
+        if (Buffer.isBuffer(fileData)){
+          await this.fileStream[fileName].write( Buffer.from(fileData.buffer.data));
+        } else {
+          await this.fileStream[fileName].write( objectToBuffer(fileData.buffer));
+        }
+        ws.send(JSON.stringify(["RESP", message[1], {
+          type: 'SUCCESS',
+          code: 200,
+          message: 'CHUNK',
+          fileUrl: `${fileName}`
+        }]));
+      }
 
-      // 返回成功响应
-      ws.send(JSON.stringify(["RESP", message[1], {
-        type: 'SUCCESS',
-        code: 200,
-        message: '文件上传成功',
-        fileUrl: `${fileName}`
-      }]));
+      if (fileData.type == DATATYPE.END) {
+          let that = this 
+
+          let response = await this.eventService.createEvent(event);
+
+          // 返回成功响应
+          ws.send(JSON.stringify(["RESP", message[1], {
+            type: 'SUCCESS',
+            code: 200,
+            message: '文件上传成功',
+            fileUrl: `${fileName}`
+          }]));
+          this.fileStream[fileName].end(() => {
+            delete  that.fileStream[fileName] ;
+          });
+          
+      }
 
     } catch (error) {
-      console.error('文件上传失败:', error);
-      ws.send(JSON.stringify(["RESP", message[1], {
-        type: 'ERROR',
-        code: 500,
-        message: '文件上传失败: ' + error.message
-      }]));
+          console.error('文件上传失败:', error);
+          ws.send(JSON.stringify(["RESP", message[1], {
+            type: 'ERROR',
+            code: 500,
+            message: '文件上传失败: ' + error.message
+          }]));
     }
+      
   }
 
   // 确保 uploadDir 存在，如果不存在则创建

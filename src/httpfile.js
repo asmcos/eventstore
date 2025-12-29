@@ -6,7 +6,6 @@ const config = require('../config/config');
 
 const PORT = 8081;
 const STATIC_DIR = path.join(__dirname, '../');// 静态文件目录
-
 // 创建HTTP服务器
 const server = http.createServer((req, res) => {
     const parsedUrl = url.parse(req.url);
@@ -96,7 +95,7 @@ function getContentType(filePath) {
 // 启动服务器
 server.listen(PORT, () => {
     console.log(`Server running on port ${PORT}`);
-    console.log(`Serving files from: ${path.join(__dirname, STATIC_DIR)}`);
+    console.log(`Serving files from: ${STATIC_DIR}`);
     console.log('Access files at: http://localhost:' + PORT + '/');
 });
 

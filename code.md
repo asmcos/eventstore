@@ -1,11 +1,8 @@
 # `code` 码规则文档
-
 ## 一、概述
 本 `code` 码规则在“按业务模块划分主区间”的基础上，新增**子码统一语义规则**：即每个业务模块下，子码末尾数字固定对应操作类型（1=更新、2=删除、3=查询、4=统计总数），形成“模块+操作”的双维度编码体系，降低记忆成本、提升扩展性。
 
-
 ## 二、`code` 码分类及子类型（含统一语义规则）
-
 ### 子码统一语义说明
 | 子码末尾数字 | 操作类型 | 示例（以用户模块为例） |
 | ---- | ---- | ---- |
@@ -13,7 +10,6 @@
 | 2 | 删除操作 | 102（删除用户） |
 | 3 | 查询操作 | 103（查询用户信息） |
 | 4 | 统计总数 | 104（获取用户总数） |
-
 
 ### （一）用户相关操作（`100 - 199`）
 | `code` 码 | 操作描述 | 子码语义匹配 |
@@ -31,7 +27,6 @@
 - **查询用户信息（103）**：根据公钥或邮箱查询用户详情，支持权限内的数据筛选。
 - **获取用户总数（104）**：统计系统用户总量，支持按状态（正常/已删除）筛选，需验证请求者权限。
 
-
 ### （二）事件相关操作（`200 - 299`）
 | `code` 码 | 操作描述 | 子码语义匹配 |
 | ---- | ---- | ---- |
@@ -40,6 +35,7 @@
 | 202 | 删除事件 | 2=删除 |
 | 203 | 查询事件信息 | 3=查询 |
 | 204 | 获取事件总数 | 4=统计总数 |
+| 205 | 获取多事件总输 | 5=统计总数 |
 
 #### 详细说明
 - **创建事件（200）**：客户端提交事件数据（含时间、用户、签名），系统校验通过后存储。
@@ -47,7 +43,7 @@
 - **删除事件（202）**：物理删除指定事件（需事件创建者或管理员权限）。
 - **查询事件信息（203）**：按用户、标签、时间范围等条件查询事件详情。
 - **获取事件总数（204）**：统计符合筛选条件（如时间范围、标签）的事件总量。
-
+- **获取事件总数（205）**：统计符合筛选条件的多个事件总量，例如多个topic的回复数目。
 
 ### （三）权限相关操作（`300 - 399`）
 | `code` 码 | 操作描述 | 子码语义匹配 |
@@ -64,7 +60,6 @@
 - **查询权限信息（303）**：查询指定用户的所有权限，或查询系统内所有权限模板。
 - **获取权限总数（304）**：统计系统内权限模板总数，或指定用户的权限数量。
 
-
 ### （四）文件操作（`400 - 499`）
 | `code` 码 | 操作描述 | 子码语义匹配 |
 | ---- | ---- | ---- |
@@ -80,7 +75,6 @@
 - **删除文件（402）**：用户删除自身上传的文件，或管理员删除违规文件，物理移除存储数据。
 - **查询文件信息（403）**：查询文件元信息（大小、类型、上传时间、访问URL）。
 - **获取文件总数（404）**：统计用户上传的文件总量，或系统内某类型文件总数。
-
 
 ### （五）评论相关操作（`500 - 599`）
 | `code` 码 | 操作描述 | 子码语义匹配 |
@@ -102,7 +96,6 @@
 - **评论点赞/取消点赞（505）**：更新单条评论的点赞状态，同步增减评论点赞数。
 - **回复评论（506）**：创建嵌套评论，关联父评论ID，形成评论层级。
 
-
 ### （六）点赞相关操作（`600 - 699`）
 | `code` 码 | 操作描述 | 子码语义匹配 |
 | ---- | ---- | ---- |
@@ -117,8 +110,32 @@
 - **查询点赞信息（603）**：查询指定内容的所有点赞用户，或指定用户的所有点赞记录。
 - **获取点赞总数（604）**：统计指定内容的实时点赞总量。
 
+### （七）浏览记录相关操作（`700 - 799`）
+| `code` 码 | 操作描述 | 子码语义匹配 |
+| ---- | ---- | ---- |
+| 700 | 上报浏览记录 | 基础创建（无统一末尾数字，为模块起始码） |
+| 701 | 更新浏览记录（补全字段） | 1=更新（补全停留时长等缺失数据） |
+| 702 | （禁用）删除浏览记录 | 2=删除（业务无删除需求，标注禁用） |
+| 703 | 查询浏览记录（列表/详情） | 3=查询 |
+| 704 | 获取浏览记录总数/统计浏览量 | 4=统计总数 |
+
+#### 详细说明
+- **上报浏览记录（700）**：用户浏览内容（话题/章节/文件）时，客户端上报浏览记录，包含用户标识（登录ID/匿名ID）、目标内容ID、浏览时间、设备信息等，系统无需验证签名（匿名用户也可上报），直接存储原始数据。
+- **更新浏览记录（补全字段）（701）**：用于补全浏览记录的缺失字段（如前端延迟上报的停留时长），支持客户端主动补传或系统后台修正，普通用户仅可更新自身的浏览记录字段，管理员可批量修正数据。
+- **（禁用）删除浏览记录（702）**：业务层面无需删除浏览记录（行为日志需留存用于数据分析），该编码标注为禁用，服务器接收到此 `code` 直接返回非法操作错误。
+- **查询浏览记录（703）**：
+  - 普通用户：仅允许查询自身的浏览记录（含匿名期的记录），支持按时间范围、内容类型筛选；
+  - 管理员：可查询指定用户/指定内容的所有浏览记录，用于行为分析、数据排查。
+- **获取浏览记录总数/统计浏览量（704）**：
+  - 统计维度1：指定用户的总浏览记录数（如“该用户累计浏览120条内容”）；
+  - 统计维度2：指定内容的总浏览量（如“该话题被浏览892次”）；
+  - 统计维度3：按时间范围统计全站/某分类的浏览总量（如“今日全站浏览量15000次”）。
 
 ## 三、使用示例（遵循统一语义规则）
+
+此代码 并非是可以执行的正确代码，仅仅为了举例说明 。
+
+真正可以执行的代码 参考 eventstoreUI/src/lib/esclient.js 
 
 ### 1. 按“更新操作=子码末尾1”示例（更新用户信息）
 ```json
@@ -148,7 +165,41 @@
 }
 ```
 
-### 3. 服务器处理逻辑（按统一语义匹配服务方法）
+### 3. 上报浏览记录示例（700）
+```json
+{
+  "ops": "C",
+  "code": 700,  // 700=浏览记录模块，基础创建操作
+  "user": "用户公钥/匿名ID",
+  "data": {
+    "targetType": "topic", 
+    "targetId": "topic_789012", 
+    "anonymousId": "f9876543-1234-5678-90ab-cdef12345678", 
+    "browseTime": "2026-02-01T10:30:00Z",
+    "deviceInfo": {
+      "os": "Windows 10",
+      "browser": "Chrome 121"
+    }
+  },
+  "sig": "（可选）登录用户签名，匿名用户无需传"
+}
+```
+
+### 4. 更新浏览记录停留时长示例（701）
+```json
+{
+  "ops": "U",
+  "code": 701,  // 700=浏览记录模块，末尾1=更新
+  "user": "用户公钥",
+  "data": {
+    "browseId": "browse_123456", 
+    "stayDuration": 360 
+  },
+  "sig": "用户签名信息"
+}
+```
+
+### 5. 服务器处理逻辑（按统一语义匹配服务方法）
 ```javascript
 async handleMessage(clientId, message) {
   try {
@@ -159,8 +210,8 @@ async handleMessage(clientId, message) {
     ];
     let response;
 
-    // 按“模块+操作”匹配逻辑，降低分支复杂度
-    if (moduleCode === 100) { // 用户模块
+    // 用户模块
+    if (moduleCode === 100) { 
       if (actionCode === 0) response = await this.userService.create(event.data);
       if (actionCode === 1) response = await this.userService.update(event.user, event.data);
       if (actionCode === 2) response = await this.userService.delete(event.user);
@@ -168,15 +219,25 @@ async handleMessage(clientId, message) {
       if (actionCode === 4) response = await this.userService.count(event.data);
     }
 
-    if (moduleCode === 500) { // 评论模块
+    // 评论模块
+    if (moduleCode === 500) { 
       if (actionCode === 0) response = await this.commentService.publish(event.user, event.data);
       if (actionCode === 1) response = await this.commentService.update(event.user, event.data);
       if (actionCode === 2) response = await this.commentService.delete(event.user, event.data);
       if (actionCode === 3) response = await this.commentService.query(event.data);
       if (actionCode === 4) response = await this.commentService.count(event.data);
+      if (actionCode === 5) response = await this.commentService.like(event.user, event.data);
+      if (actionCode === 6) response = await this.commentService.reply(event.user, event.data);
     }
 
-    // 其他模块逻辑...
+    // 浏览记录模块
+    if (moduleCode === 700) { 
+      if (actionCode === 0) response = await this.browseService.report(event.data);
+      if (actionCode === 1) response = await this.browseService.update(event.user, event.data);
+      if (actionCode === 2) throw new Error("浏览记录不支持删除操作");
+      if (actionCode === 3) response = await this.browseService.query(event.user, event.data);
+      if (actionCode === 4) response = await this.browseService.count(event.user, event.data);
+    }
 
     this.sendResponse(clientId, { success: true, data: response });
   } catch (error) {
@@ -185,8 +246,9 @@ async handleMessage(clientId, message) {
 }
 ```
 
-
 ## 四、规则优势
 1. **语义统一**：所有模块共享“1=更新、2=删除、3=查询、4=统计”的子码逻辑，开发无需记忆各模块特殊编码。
-2. **扩展性强**：新增模块时，直接按“模块区间+子码语义”生成编码（如700=消息创建、701=消息更新），无需重新定义规则。
+2. **扩展性强**：新增模块时，直接按“模块区间+子码语义”生成编码（如700=浏览记录创建、701=浏览记录更新），无需重新定义规则。
 3. **故障排查高效**：通过 `code` 码即可快速定位业务模块（如6xx=点赞）和操作类型（如603=查询点赞），简化日志分析。
+
+ 

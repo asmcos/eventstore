@@ -204,6 +204,103 @@ class EventService {
     const total = await db.collection(this.collections.events).countDocuments(filter);
     return { code: 200, message: '成功', counts:total };
   }
+
+  async countsByTag(countEvent) {
+    const db = await this.getDb();
+    const eventsCollection = db.collection(this.collections.events);
+  
+    
+  
+    const pipeline = [];
+  
+    let filter = countEvent.filter
+    let statTagKey = filter[0]
+    let statTagValues = filter[1]
+
+    // 1️ 固定条件（如 t=create_post）
+   // 1️ 固定条件（如 t=create_post）
+  if (countEvent.tags) {
+    let tags = countEvent.tags;
+    tags.map(tag => {
+      pipeline.push({
+        $match: {
+          tags: {
+            $elemMatch: {
+              0: tag[0],
+              1: tag[1]
+            }
+          }
+        }
+      });
+    });
+  }
+
+  // 2️ 必须包含统计维度 key（topicid / pid）
+  pipeline.push({
+    $match: {
+      tags: {
+        $elemMatch: { 0: statTagKey ,              
+          "1": {"$in":  statTagValues}
+        }
+      }
+    }
+  });
+
+  // 3️ 提取统计值（修复 $isArray 使用）
+  pipeline.push({
+
+      "$addFields": {
+        "targetid": {
+          "$reduce": {
+            "input": "$tags",
+            "initialValue": null,
+            "in": {
+              "$cond": [
+                {
+                  "$and": [
+                    { "$eq": [{ "$arrayElemAt": ["$$this", 0] }, statTagKey] }
+                  ]
+                },
+                { "$arrayElemAt": ["$$this", 1] },  // 返回数组的第二个元素
+                "$$value"
+              ]
+            }
+          }
+        }
+      }
+    
+  });
+
+
+  // 5️ 分组统计
+  pipeline.push({
+    $group: {
+      _id: '$targetid',
+      count: { $sum: 1 }
+    }
+  });
+
+  // 6️ 输出格式
+  pipeline.push({
+    $project: {
+      _id: 0,
+      targetid: '$_id',
+      count: 1
+    }
+  });
+      
+    
+ 
+
+    const result = await eventsCollection.aggregate(pipeline).toArray();
+  
+    return {
+      code: 200,
+      message: '统计成功',
+      counts: result
+    };
+  }
+  
 }
 
 // 导出单例服务

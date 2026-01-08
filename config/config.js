@@ -16,7 +16,8 @@ module.exports = {
       users:'users',
       permissions: 'permissions', // 权限
       comments: 'comments',
-      likes: 'likes'
+      likes: 'likes',
+      browselogs:'browselogs'
     },
     options: {
       maxPoolSize: 10,

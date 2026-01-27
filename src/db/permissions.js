@@ -96,7 +96,7 @@ class PermissionService {
 	    }
 	  } else {
 	    // 用户存在：更新现有权限
-	    newPermissions = (user.permissions || 0) | permissionValue;
+	    newPermissions =   permissionValue;
 	    try {
 	      const result = await permissionsCollection.updateOne(
           { pubkey: userId },
@@ -111,6 +111,8 @@ class PermissionService {
 	      if (result.modifiedCount === 0 && user.permissions === newPermissions) {
 		      logger.info(`用户 ${userId} 已拥有权限 ${permissionName}`);
 	      } else {
+          // 优化后代码
+
 	        logger.info(`成功为用户 ${userId} 更新并分配权限 ${permissionValue}`);
 	      }
 	      return { code: 200, message:  '权限更新成功'};

@@ -155,7 +155,6 @@ class EventService {
     const eventsCollection = db.collection(this.collections.events);
 
     let eventid = event.data.eventid 
-     
     
     let eventdoc = await eventsCollection.findOne({id:eventid})
 
@@ -170,20 +169,21 @@ class EventService {
         return {code:500,message:'签名验证失败'}
     }
 
-    if (event.user == eventdoc.user){
-      await eventsCollection.deleteOne({id:eventid});
-    } 
     if (event.user == this.adminPubkey){
       await eventsCollection.updateOne(
         { id: eventid },
         {
           $set: { 
-            status: 1,
+            status: event.status??1,
             updatedAt: new Date() 
           }
         }
       );
     }
+    
+    if (event.user == eventdoc.user){
+      await eventsCollection.deleteOne({id:eventid});
+    } 
     return  {code:200,message:'事件删除成功'};
 
   }
